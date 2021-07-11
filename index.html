@@ -3,88 +3,42 @@
 <html>
 
 <head>
-
-    <style>
-
-        .modal {
-            position: absolute;
-            overflow: hidden;
-
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            
-            opacity: 1;
-            transition: all 1s;
-
-            padding: 20px;
-
-            border: 10px solid grey;
-            border-style: outset;
-            border-radius: 20px;
-            box-shadow: 10px 10px 0px #00000030;
-        }
-
-        .hidden {
-            opacity: 0;
-            transform: translate(-50%, -100%);
-            transition: all 1s;
-        }
-
-
-        .grid {
-            display: grid;
-        }
-
-        .body {
-            display: grid;
-        }
-
-        .body .graph {
-            border: 3px dashed black;
-        }
-
-        .foot {
-            text-align: right;
-        }
-
-    </style>
-
+    <link rel="stylesheet" href="index.css">
 </head>
 
 <body>
-
     <div id='pop' class='modal hidden' onshow='show'>
-
         <div class='grid'>
-    
             <div class='head'>
-    
                 <h1>
                     Simulated Annealing DEMO
                 </h1>
-    
             </div>
         
             <div class='body'>
-                <p> Count : <span id='count'>1</span></p>
+                <div>
+                    <div>
+                        <span>Temp : </span><input id='temp' type='number' value='2'>
+                        <span>Rate : </span><input id='rate' type='number' value='0.99'>
+                        <span>Step : </span><input id='step' type='number' value='1'>
+                        <input type='button' value='RESTART' onclick='setSA'></input>
+                    </div>
+                </div>
+                <p>
+                    <span id='count'></span>
+                </p>
                 <canvas id='graph' class='graph' width='800' height='800'>
         
                 </canvas>
             </div>
         
             <div class='foot'>
-        
                 <h2>
                     Made By 郑润宇
                 </h2>
-    
             </div>
-    
         </div>
-
     </div>
-
 </body>
 
 <script src='sim-anneal.js'></script>
@@ -92,12 +46,58 @@
 
 <script>
 
+    // Setup env
+
+    var canvas = document.getElementById('graph')
+    var span = document.getElementById('count')
+    var temp = document.getElementById('temp')
+    var rate = document.getElementById('rate')
+    var step = document.getElementById('step')
+
+    var t = temp.value
+    var r = rate.value
+    var s = step.value
+    
+    var sa;
+    var res;
+
     setTimeout(() => {
         var target = document.getElementById('pop')
         target.classList.remove('hidden')
     }, 0)
 
-    var canvas = document.getElementById('graph')
+    graph.set(canvas)
+    graph.start()
+
+    // ********************
+    // Help function
+    // ********************
+
+    function range(n) {
+        return [...Array(n).keys()]
+    }
+
+    function rInt(n) {
+        return Math.floor(Math.random() * n)
+    }
+
+    function swap(arr, n1, n2) {
+        var t = arr[n1 % arr.length]
+        arr[n1 % arr.length] = arr[n2 % arr.length]
+        arr[n2 % arr.length] = t
+    }
+
+    function distance(p1, p2) {
+        return Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2))
+    }
+
+    function choice(arr) {
+        return arr.splice(rInt(arr.length), 1)[0]
+    }
+
+    // ********************
+    // Input data
+    // ********************
 
     var cities = [
         [0.6606, 0.9500],
@@ -122,53 +122,71 @@
         [0.8668, 0.6768]
     ]
 
-    graph.set(canvas)
-    graph.start()
+    // ********************
+    // Simulated Annealing start
+    // ********************
 
-    let sa = simAnneal.setup(2, 0.999, cities, (cities) => {
+    setSA()
+    function setSA() {
 
-        // Generate next
+        t = temp.value
+        r = rate.value
+        s = step.value
 
-        var arr = [...Array(cities.length).keys()]
-        var n1 = arr.splice(Math.floor(Math.random() * arr.length), 1)[0]
-        var n2 = arr.splice(Math.floor(Math.random() * arr.length), 1)[0]
+        sa = simAnneal.setup(t, r, cities, (cities) => {
 
-        var city = cities[n1]
-        cities[n1] = cities[n2]
-        cities[n2] = city
+            // Generate next
 
-        return cities
+            var cities = [...cities]
 
-    }, (cities) => {
+            var arr = range(cities.length)
+            var n1 = choice(arr)
+            var n2 = choice(arr)
 
-        // Evaluation
+            swap(cities, n1, n2)
 
-        var e = 0
+            return cities
 
-        for(let i = 0; i < cities.length; i++) {
+        }, (cities) => {
 
-            var p1 = cities[i]
-            var p2 = i < cities.length - 1 ? cities[i + 1] : cities[0]
+            // Evaluation
 
-            e += Math.sqrt(Math.pow(p1[0] - p2[0], 2) + Math.pow(p1[1] - p2[1], 2))
+            var e = 0
 
-        }
+            for(let i = 0; i < cities.length; i++) {
 
-        return e
+                var p1 = cities[i]
+                var p2 = i < cities.length - 1 ? cities[i + 1] : cities[0]
 
-    })
+                e += distance(p1, p2)
+
+            }
+
+            return e
+
+        });
+
+    }
     
-    var i = 0
-    setInterval(() => {
-        var solution = sa.step()
-        graph.setData(solution)
-        i++
-    }, 1)
+
+    // ********************
+    // Refresh
+    // ********************
+    (function next() {
+        for(let i = 0; i < s; i++) {
+            res = sa.step()
+        }
+        
+        graph.setData(res.solution)
+        window.requestAnimationFrame(next)
+    })()
 
     setInterval(() => {
-        var span = document.getElementById('count')
-        span.innerText = i
-    }, 100)
+        var str = ''
+        str += `Count : ${res.count}\n`
+        str += `Enery : ${res.energy}`
+        span.innerText = str
+    }, 500)
 
 </script>
 
